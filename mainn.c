@@ -25,10 +25,14 @@
 #define REGRAS    1
 #define HANDEBOL  2
 #define VITORIA   3
+#define ATLETISMO 4
+
 
 // tamanho da janela em pixels
 #define LARGURA 1200
 #define ALTURA  750
+
+#include "atletismo.h"
 
 // posicoes da quadra (no Allegro o eixo Y cresce para BAIXO)
 #define CHAO    630    // y onde fica o chao
@@ -92,9 +96,13 @@ int main() {
     ALLEGRO_EVENT_QUEUE* fila = al_create_event_queue();   // fila onde chegam teclas, timer etc.
     ALLEGRO_TIMER* timer = al_create_timer(1.0 / 60);       // dispara 60 vezes por segundo (60 FPS)
 
-    ALLEGRO_FONT* fonte = al_load_ttf_font("C:/Windows/Fonts/arial.ttf", 24, 0);
-    ALLEGRO_FONT* fonteGrande = al_load_ttf_font("C:/Windows/Fonts/arialbd.ttf", 56, 0);
+    ALLEGRO_FONT* fonte = al_load_ttf_font("/System/Library/Fonts/Supplemental/Arial.ttf", 24, 0);
+    ALLEGRO_FONT* fonteGrande = al_load_ttf_font("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 56, 0);
 
+    if (!janela || !fila || !timer) {
+        fprintf(stderr, "Erro ao criar janela, fila ou timer.\n");
+        return 1;
+    }
     al_set_window_title(janela, "DuoFit");
 
     // diz para a fila "escutar" a janela, o teclado e o timer
@@ -114,6 +122,7 @@ int main() {
     // Ana: goleira
     ALLEGRO_BITMAP* anaParadaEsq = al_load_bitmap("assets/ana_paradaesquerda.png");
     ALLEGRO_BITMAP* anaAndando = al_load_bitmap("assets/ana_andando1.png");
+    ALLEGRO_BITMAP* anaAndando2 = al_load_bitmap("assets/ana_correndo2.png");
     ALLEGRO_BITMAP* anaAndandoEsq = al_load_bitmap("assets/ana_andandoesquerda1.png");
     ALLEGRO_BITMAP* anaPulando = al_load_bitmap("assets/ana_pulando1.png");
     ALLEGRO_BITMAP* bola = al_load_bitmap("assets/bola.png");
@@ -121,7 +130,7 @@ int main() {
 
     // !ponteiro e verdadeiro quando o ponteiro e NULL (falhou)
     if (!fonte || !fonteGrande || !ricoParado || !ricoParadoEsq || !ricoAndando || !ricoAndandoEsq ||
-        !ricoPulando || !anaParadaEsq || !anaAndando || !anaAndandoEsq || !anaPulando || !bola) {
+        !ricoPulando || !anaParadaEsq || !anaAndando || !anaAndando2 || !anaAndandoEsq || !anaPulando || !bola) {
         printf("Erro ao carregar fontes ou imagens.\n");
         return 1;
     }
@@ -135,6 +144,9 @@ int main() {
     ALLEGRO_COLOR azul = al_map_rgb(20, 45, 100);
 
     // ---------- variaveis do jogo ----------
+    Corrida corrida = {0};
+    iniciar_corrida(&corrida);
+
     int estado = MENU;     // qual tela esta aparecendo
     int opcao = 0;         // botao selecionado no menu: 0 = JOGAR, 1 = SAIR
 
@@ -189,6 +201,16 @@ int main() {
             rodando = false;   // clicou no X da janela
         }
 
+        // Soltar a tecla e perder o foco interrompem a aceleracao.
+        if (evento.type == ALLEGRO_EVENT_KEY_UP) {
+            if (evento.keyboard.keycode == ALLEGRO_KEY_D) corrida.teclaD = false;
+            if (evento.keyboard.keycode == ALLEGRO_KEY_RIGHT) corrida.teclaDireita = false;
+        }
+        if (evento.type == ALLEGRO_EVENT_DISPLAY_SWITCH_OUT) {
+            corrida.teclaD = false;
+            corrida.teclaDireita = false;
+        }
+
         // =============================================
         // 1) TECLADO
         // =============================================
@@ -198,6 +220,10 @@ int main() {
 
             // ----- menu -----
             if (estado == MENU) {
+                if (tecla == ALLEGRO_KEY_2) {
+                    iniciar_corrida(&corrida);
+                    estado = ATLETISMO;
+                }
                 if (tecla == ALLEGRO_KEY_W || tecla == ALLEGRO_KEY_UP) {
                     opcao = 0;
                 }
@@ -238,6 +264,20 @@ int main() {
                 if (tecla == ALLEGRO_KEY_ENTER) {
                     estado = MENU;
                 }
+            }
+
+            // ----- fase de atletismo -----
+            else if (estado == ATLETISMO) {
+                if (tecla == ALLEGRO_KEY_BACKSPACE || tecla == ALLEGRO_KEY_ESCAPE) {
+                    corrida.teclaD = false;
+                    corrida.teclaDireita = false;
+                    estado = MENU;
+                }
+                else if (tecla == ALLEGRO_KEY_SPACE) saltar_corrida(&corrida);
+                else if (tecla == ALLEGRO_KEY_E) passar_bastao(&corrida);
+                else if (tecla == ALLEGRO_KEY_R) iniciar_corrida(&corrida);
+                else if (tecla == ALLEGRO_KEY_D) corrida.teclaD = true;
+                else if (tecla == ALLEGRO_KEY_RIGHT) corrida.teclaDireita = true;
             }
 
             // ----- fase de handebol -----
@@ -335,6 +375,8 @@ int main() {
         if (evento.type == ALLEGRO_EVENT_TIMER) {
 
             redesenhar = true;
+
+            if (estado == ATLETISMO) atualizar_corrida(&corrida, 1.0f / 60.0f);
 
             if (estado == HANDEBOL) {
 
@@ -521,7 +563,12 @@ int main() {
                 al_draw_rounded_rectangle(450, 460, 750, 520, 12, 12, branco, 3);
                 escrever(fonte, branco, 476, "SAIR");
 
-                escrever(fonte, branco, ALTURA - 60, "W / S para escolher  |  ENTER para confirmar");
+                escrever(fonte, branco, ALTURA - 60, "W / S escolher | ENTER handebol | 2 atletismo");
+            }
+
+            else if (estado == ATLETISMO) {
+                desenhar_corrida(&corrida, fonte, fonteGrande, anaParadaEsq, anaAndando, anaAndando2,
+                    anaPulando, ricoParado, ricoAndando, ricoPulando);
             }
 
             // ----- regras -----
@@ -685,6 +732,7 @@ int main() {
     al_destroy_bitmap(ricoPulando);
     al_destroy_bitmap(anaParadaEsq);
     al_destroy_bitmap(anaAndando);
+    al_destroy_bitmap(anaAndando2);
     al_destroy_bitmap(anaAndandoEsq);
     al_destroy_bitmap(anaPulando);
     al_destroy_bitmap(bola);
