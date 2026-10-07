@@ -12,7 +12,9 @@ Com Allegro 5, compilador C e `pkg-config` instalados, execute na pasta do proje
 ./run.sh
 ```
 
-O script compila `mainn.c`. `main.c` é o protótipo anterior.
+O script compila `mainn.c`, `handebol.c` e `atletismo.c` juntos.
+`mainn.c` contém o menu; cada esporte tem sua própria função de entrada
+declarada em `fases.h`. `main.c` é o protótipo anterior.
 A configuração atual de fontes usa Arial do macOS.
 
 ## Fase 2: Atletismo — Sprint 1
@@ -34,7 +36,8 @@ O cronômetro começa no primeiro movimento e para na chegada.
 
 ### Valores iniciais para ajustar no planejamento
 
-A mecânica e o cenário ficam em `atletismo.h`, integrados ao loop de `mainn.c`.
+A mecânica, o cenário e o loop da fase ficam em `atletismo.c`.
+`atletismo.h` mantém apenas a declaração da função de entrada.
 As constantes no início do arquivo controlam a corrida:
 
 | Parâmetro | Valor |
@@ -71,4 +74,4 @@ Rico reaproveita seus sprites atuais de movimento e salto; ainda tem uma
 3. Solte: confira que Ana desacelera e para.
 4. Segure **→** até a chegada: confira a mensagem e o tempo congelado.
 5. Pressione **R**: posição, câmera, velocidade e tempo devem voltar ao início.
-6. Volte ao menu e entre no handebol com **Enter**.
+6. Volte ao menu e selecione **HANDEBOL** com W/S e **Enter**.
