@@ -6,11 +6,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "fases.h"
+#include "navegacao.h"
+#include "rico_sprites.h"
+#include "ana_sprites.h"
 
 #define LARGURA 1200
 #define ALTURA 750
 
-// Sprint 1: valores em pixels e segundos, separados do handebol.
 #define CORRIDA_INICIO 150.0f
 #define CORRIDA_CHEGADA 4150.0f
 #define CORRIDA_MUNDO 4500.0f
@@ -32,7 +34,7 @@ static float velocidadeCorrida;    // pixels por segundo
 static float cameraCorrida;        // deslocamento do cenario
 static float tempoCorrida;         // cronometro
 static float tempoAnimacao;        // tempo desde a troca de imagem
-static int frameCorrida;           // imagem 0 ou imagem 1
+static int frameCorrida;           // indice da pose no ciclo de animacao
 static int atletaAtual;            // 0 = Ana, 1 = Rico
 static int barreirasDerrubadas;
 static float alturaSalto;          // altura dos pes acima do chao
@@ -127,13 +129,15 @@ static void atualizar_corrida(float dt) {
         // O timer troca a pose continuamente, mesmo sem novos eventos de tecla.
         if (velocidadeCorrida > 0) {
             tempoAnimacao = tempoAnimacao + (dt);
-            while (tempoAnimacao >= CORRIDA_TEMPO_FRAME) {
-                tempoAnimacao = tempoAnimacao - (CORRIDA_TEMPO_FRAME);
-                if (frameCorrida == 0) {
-                    frameCorrida = 1;
-                } else {
-                    frameCorrida = 0;
-                }
+            // Rico usa quatro poses: 60 a 100 ms por frame conforme a velocidade.
+            float duracaoFrame = CORRIDA_TEMPO_FRAME;
+            if (atletaAtual == 1) {
+                float ritmo = velocidadeCorrida / CORRIDA_VELOCIDADE_MAX;
+                duracaoFrame = 0.10f - 0.04f * ritmo;
+            }
+            while (tempoAnimacao >= duracaoFrame) {
+                tempoAnimacao -= duracaoFrame;
+                frameCorrida = (frameCorrida + 1) % 4;
             }
         }
     } else if (posicaoCorredor > CORRIDA_INICIO) {
@@ -169,10 +173,11 @@ static void atualizar_corrida(float dt) {
 }
 
 static void desenhar_corrida(ALLEGRO_FONT *fonte,
-    ALLEGRO_FONT *grande, ALLEGRO_BITMAP *paradaEsq,
+    ALLEGRO_FONT *grande, ALLEGRO_BITMAP *parada,
     ALLEGRO_BITMAP *andando, ALLEGRO_BITMAP *andando2,
     ALLEGRO_BITMAP *anaSalto, ALLEGRO_BITMAP *ricoParado,
-    ALLEGRO_BITMAP *ricoAndando, ALLEGRO_BITMAP *ricoSalto) {
+    ALLEGRO_BITMAP *ricoAndando, ALLEGRO_BITMAP *ricoSalto,
+    ALLEGRO_BITMAP *ricoCorrida) {
     ALLEGRO_COLOR branco = al_map_rgb(255, 255, 255);
     ALLEGRO_COLOR escuro = al_map_rgb(20, 45, 70);
     al_clear_to_color(al_map_rgb(185, 225, 245));
@@ -230,9 +235,9 @@ static void desenhar_corrida(ALLEGRO_FONT *fonte,
         parceiroX = CORRIDA_TROCA_X;
         espelharParceiro = 0;
     } else {
-        esperando = paradaEsq;
+        esperando = parada;
         parceiroX = CORRIDA_TROCA_INICIO;
-        espelharParceiro = ALLEGRO_FLIP_HORIZONTAL;
+        espelharParceiro = 0;
     }
     al_draw_scaled_bitmap(esperando, 0, 0, al_get_bitmap_width(esperando),
         al_get_bitmap_height(esperando), parceiroX - cameraCorrida - 70,
@@ -255,11 +260,11 @@ static void desenhar_corrida(ALLEGRO_FONT *fonte,
         }
     }
 
-    ALLEGRO_BITMAP *sprite = paradaEsq;
-    int flags = ALLEGRO_FLIP_HORIZONTAL;
+    ALLEGRO_BITMAP *sprite = parada;
+    int flags = 0;
     if (velocidadeCorrida > 0) {
-        // Alterna diretamente ana_andando1.png e ana_correndo2.png.
-        if (frameCorrida == 0) {
+        // Alterna os recortes de caminhada e corrida da Ana.
+        if (frameCorrida % 2 == 0) {
             sprite = andando;
         } else {
             sprite = andando2;
@@ -282,9 +287,33 @@ static void desenhar_corrida(ALLEGRO_FONT *fonte,
         }
         flags = 0;
     }
-    al_draw_scaled_bitmap(sprite, 0, 0, al_get_bitmap_width(sprite),
-        al_get_bitmap_height(sprite), posicaoCorredor - cameraCorrida - 70,
-        420 - alturaSalto, 140, 210, flags);
+    float spriteX = posicaoCorredor - cameraCorrida - 70;
+    if (atletaAtual == 1 && velocidadeCorrida > 0 && alturaSalto <= 0) {
+        // A spritesheet tem espacamento irregular: cada pose possui seu recorte.
+        // Mantem a mesma escala e ancora o torso e a sola, sem cortar os tenis.
+        static const struct {
+            int inicio, fim, pivoX, solaY;
+        } frames[4] = {
+            {32, 590, 353, 698},
+            {600, 1025, 842, 699},
+            {1030, 1625, 1391, 700},
+            {1676, 2094, 1930, 700}
+        };
+        int indice = frameCorrida;
+        float escalaFonte = al_get_bitmap_width(ricoCorrida) / 2172.0f;
+        float escala = 210.0f / 724;
+        float larguraFrame = frames[indice].fim - frames[indice].inicio;
+        float desenhoX = spriteX + 70 -
+            (frames[indice].pivoX - frames[indice].inicio) * escala;
+        float desenhoY = 630 - frames[indice].solaY * escala;
+        al_draw_scaled_bitmap(ricoCorrida, frames[indice].inicio * escalaFonte, 0,
+            larguraFrame * escalaFonte, al_get_bitmap_height(ricoCorrida),
+            desenhoX, desenhoY, larguraFrame * escala, 210, 0);
+    } else {
+        al_draw_scaled_bitmap(sprite, 0, 0, al_get_bitmap_width(sprite),
+            al_get_bitmap_height(sprite), spriteX,
+            420 - alturaSalto, 140, 210, flags);
+    }
     // Bastao acompanha a mao do atleta que esta correndo.
     float maoX = posicaoCorredor - cameraCorrida + 35;
     al_draw_line(maoX, 520 - alturaSalto, maoX + 25, 505 - alturaSalto,
@@ -301,13 +330,17 @@ static void desenhar_corrida(ALLEGRO_FONT *fonte,
         al_draw_text(fonte, escuro, 600, 180, ALLEGRO_ALIGN_CENTER,
             "Passe o bastao ao Rico: pressione E no chao!");
     }
+    if (!corridaTerminou && posicaoCorredor < barreirasX[0] && tempoAviso <= 0) {
+        al_draw_text(fonte, escuro, 600, 220, ALLEGRO_ALIGN_CENTER,
+            "Primeira barreira: observe a distancia e salte com ESPACO.");
+    }
     if (tempoAviso > 0) {
         al_draw_text(fonte, escuro, 600, 220, ALLEGRO_ALIGN_CENTER,
             "Barreira derrubada! Salte um pouco antes com ESPACO.");
     }
 
     al_draw_text(fonte, escuro, LARGURA / 2, 20, ALLEGRO_ALIGN_CENTER,
-        "DuoFit - Fase 2: Atletismo");
+        "DuoFit - Circuito educativo de atletismo");
     float metros = (posicaoCorredor - CORRIDA_INICIO) / 40;
     al_draw_textf(fonte, escuro, LARGURA / 2, 60, ALLEGRO_ALIGN_CENTER,
         "Percurso: %.1f / 100 m | Velocidade: %.1f m/s | Tempo: %.2f s",
@@ -318,31 +351,93 @@ static void desenhar_corrida(ALLEGRO_FONT *fonte,
     al_draw_text(fonte, branco, LARGURA / 2, 710, ALLEGRO_ALIGN_CENTER,
         "D / seta: correr | ESPACO: saltar | E: bastao | R: reiniciar | ESC: menu");
     if (corridaTerminou) {
-        al_draw_filled_rounded_rectangle(260, 200, 940, 385, 16, 16, escuro);
+        al_draw_filled_rounded_rectangle(260, 200, 940, 445, 16, 16, escuro);
         al_draw_text(grande, branco, 600, 220, ALLEGRO_ALIGN_CENTER, "CHEGOU!");
         al_draw_textf(fonte, branco, 600, 300, ALLEGRO_ALIGN_CENTER,
             "Ana + Rico: %.2f s | Barreiras derrubadas: %d", tempoCorrida, barreirasDerrubadas);
         al_draw_text(fonte, branco, 600, 345, ALLEGRO_ALIGN_CENTER,
+            "Voce praticou ritmo, coordenacao e cooperacao!");
+        al_draw_text(fonte, branco, 600, 380, ALLEGRO_ALIGN_CENTER,
+            "Ana e Rico completaram juntos a passagem do bastao.");
+        al_draw_text(fonte, branco, 600, 415, ALLEGRO_ALIGN_CENTER,
             "R para correr novamente | ESC para o menu");
     }
 }
 
-// Abre a fase, recebe as teclas e libera os recursos ao sair.
+// As telas educativas usam o mesmo timer, mas nao iniciam o cronometro da prova.
+static void desenhar_aula(ALLEGRO_FONT *fonte, ALLEGRO_BITMAP *ana,
+    int tela, float salto, bool praticou, int resposta) {
+    ALLEGRO_COLOR branco = al_map_rgb(255, 255, 255);
+    ALLEGRO_COLOR azul = al_map_rgb(20, 45, 70);
+    const char *titulos[] = {"Circuito educativo de atletismo", "Experimente o salto",
+        "Revezamento: cooperar para chegar", "Desafio: voce aprendeu?"};
+    const char *textos[][3] = {
+        {"Este circuito combina fundamentos de barreiras e revezamento.",
+         "Corra pela sua raia, salte as barreiras e leve o bastao ate a chegada.",
+         "E uma atividade adaptada: nao representa uma unica prova oficial."},
+        {"Observe a distancia: o momento do salto ajuda a manter o ritmo.",
+         "Pressione ESPACO para experimentar. Aqui o tempo nao conta.",
+         "No DuoFit, bater na barreira reduz a velocidade: uma adaptacao do jogo."},
+        {"Ana comeca a corrida e Rico continua com o bastao.",
+         "A passagem acontece dentro da zona de troca, destacada em amarelo.",
+         "Neste jogo, pressione E no chao, dentro dessa zona."},
+        {"Onde deve acontecer a passagem do bastao?",
+         "A) Em qualquer ponto da pista.", "B) Dentro da zona de passagem."}
+    };
+    al_clear_to_color(al_map_rgb(225, 240, 248));
+    al_draw_filled_rounded_rectangle(60, 35, 1140, 710, 18, 18, branco);
+    al_draw_textf(fonte, azul, 600, 60, ALLEGRO_ALIGN_CENTER,
+        "ATLETISMO | Aprender antes de jogar | %d / 4", tela + 1);
+    al_draw_text(fonte, azul, 600, 115, ALLEGRO_ALIGN_CENTER, titulos[tela]);
+    for (int i = 0; i < 3; i++)
+        al_draw_text(fonte, azul, 600, 185 + i * 42, ALLEGRO_ALIGN_CENTER, textos[tela][i]);
+    if (tela == 0 || tela == 1) {
+        al_draw_filled_rectangle(180, 520, 1020, 570, al_map_rgb(190, 80, 55));
+        al_draw_line(180, 550, 1020, 550, branco, 3);
+        al_draw_scaled_bitmap(ana, 0, 0, al_get_bitmap_width(ana), al_get_bitmap_height(ana),
+            420, 345 - salto, 120, 180, 0);
+        al_draw_line(620, 525, 620, 450, azul, 5);
+        al_draw_line(680, 525, 680, 450, azul, 5);
+        al_draw_line(610, 450, 690, 450, al_map_rgb(230, 110, 35), 9);
+    } else if (tela == 2) {
+        al_draw_filled_rectangle(200, 390, 1000, 500, al_map_rgb(190, 80, 55));
+        al_draw_filled_rectangle(450, 390, 750, 500, al_map_rgb(245, 190, 40));
+        al_draw_text(fonte, azul, 325, 425, ALLEGRO_ALIGN_CENTER, "ANA  ->");
+        al_draw_text(fonte, azul, 600, 425, ALLEGRO_ALIGN_CENTER, "BASTAO | E");
+        al_draw_text(fonte, azul, 870, 425, ALLEGRO_ALIGN_CENTER, "->  RICO");
+        al_draw_text(fonte, azul, 600, 525, ALLEGRO_ALIGN_CENTER, "Zona de troca: os dois atletas participam!");
+    } else {
+        al_draw_filled_rounded_rectangle(180, 340, 1020, 410, 12, 12, azul);
+        al_draw_filled_rounded_rectangle(180, 430, 1020, 500, 12, 12, azul);
+        al_draw_text(fonte, branco, 600, 360, ALLEGRO_ALIGN_CENTER, "A - Em qualquer ponto");
+        al_draw_text(fonte, branco, 600, 450, ALLEGRO_ALIGN_CENTER, "B - Dentro da zona de passagem");
+        if (resposta)
+            al_draw_text(fonte, azul, 600, 540, ALLEGRO_ALIGN_CENTER,
+                resposta == 2 ? "Isso! A zona organiza a passagem entre os atletas." :
+                "Tente novamente: a passagem tem uma zona propria na pista.");
+    }
+    bool pode = (tela != 1 || praticou) && (tela != 3 || resposta == 2);
+    al_draw_filled_rounded_rectangle(380, 600, 820, 655, 12, 12,
+        pode ? al_map_rgb(30, 110, 130) : al_map_rgb(110, 120, 130));
+    al_draw_text(fonte, branco, 600, 612, ALLEGRO_ALIGN_CENTER,
+        !pode ? (tela == 1 ? "ESPACO para praticar" : "Escolha A ou B") :
+        (tela == 3 ? "Comecar corrida | ENTER" : "Continuar | ENTER"));
+    al_draw_text(fonte, azul, 600, 672, ALLEGRO_ALIGN_CENTER, "Clique nos botoes | ESC: voltar ao menu");
+}
+
 void jogar_atletismo(void) {
     ALLEGRO_DISPLAY *janela = al_create_display(LARGURA, ALTURA);
     ALLEGRO_EVENT_QUEUE *fila = al_create_event_queue();
     ALLEGRO_TIMER *timer = al_create_timer(1.0 / 60);
     ALLEGRO_FONT *fonte = al_load_ttf_font("/System/Library/Fonts/Supplemental/Arial.ttf", 24, 0);
     ALLEGRO_FONT *grande = al_load_ttf_font("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 56, 0);
-    ALLEGRO_BITMAP *imagens[7];
-    const char *arquivos[7] = {
-        "assets/ana_paradaesquerda.png", "assets/ana_andando1.png",
-        "assets/ana_correndo2.png", "assets/ana_pulando1.png",
-        "assets/rico_parado.png", "assets/rico_andando.png", "assets/rico_pulando.png"
-    };
+    ALLEGRO_BITMAP *atlasRico = carregar_atlas_rico();
+    ALLEGRO_BITMAP *atlasAna = carregar_atlas_ana();
+    ALLEGRO_BITMAP *imagens[8];
+    const int posesAna[4] = {ANA_PARADA, ANA_ANDANDO1, ANA_CORRENDO2, ANA_PULANDO};
     bool carregou = janela && fila && timer && fonte && grande;
-    for (int i = 0; i < 7; i++) {
-        imagens[i] = al_load_bitmap(arquivos[i]);
+    for (int i = 0; i < 8; i++) {
+        imagens[i] = i < 4 ? recortar_ana(atlasAna, posesAna[i]) : recortar_rico(atlasRico, i - 4);
         if (!imagens[i]) carregou = false;
     }
     if (carregou) {
@@ -350,6 +445,11 @@ void jogar_atletismo(void) {
         al_register_event_source(fila, al_get_display_event_source(janela));
         al_register_event_source(fila, al_get_keyboard_event_source());
         al_register_event_source(fila, al_get_timer_event_source(timer));
+        al_register_event_source(fila, al_get_mouse_event_source());
+        int telaAula = 0;
+        int resposta = 0;
+        float saltoTreino = 0, velocidadeTreino = 0;
+        bool praticou = false;
         iniciar_corrida();
         bool rodando = true;
         bool redesenhar = true;
@@ -357,10 +457,52 @@ void jogar_atletismo(void) {
         while (rodando) {
             ALLEGRO_EVENT evento;
             al_wait_for_event(fila, &evento);
+            if (pediu_voltar(&evento)) break;
             if (evento.type == ALLEGRO_EVENT_DISPLAY_CLOSE) rodando = false;
             if (evento.type == ALLEGRO_EVENT_DISPLAY_SWITCH_OUT) {
                 teclaDCorrida = false;
                 teclaDireitaCorrida = false;
+            }
+            if (telaAula < 4) {
+                bool tecla = evento.type == ALLEGRO_EVENT_KEY_DOWN;
+                int codigo = tecla ? evento.keyboard.keycode : 0;
+                bool clique = evento.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN && evento.mouse.button == 1;
+                if (tecla && (codigo == ALLEGRO_KEY_ESCAPE || codigo == ALLEGRO_KEY_BACKSPACE))
+                    rodando = false;
+                if (telaAula == 1 && tecla && codigo == ALLEGRO_KEY_SPACE && saltoTreino == 0) {
+                    velocidadeTreino = 650;
+                    praticou = true;
+                }
+                if (telaAula == 3) {
+                    if (codigo == ALLEGRO_KEY_A || (clique && evento.mouse.x >= 180 &&
+                        evento.mouse.x <= 1020 && evento.mouse.y >= 340 && evento.mouse.y <= 410)) resposta = 1;
+                    if (codigo == ALLEGRO_KEY_B || (clique && evento.mouse.x >= 180 &&
+                        evento.mouse.x <= 1020 && evento.mouse.y >= 430 && evento.mouse.y <= 500)) resposta = 2;
+                }
+                bool continuar = codigo == ALLEGRO_KEY_ENTER || (clique && evento.mouse.x >= 380 &&
+                    evento.mouse.x <= 820 && evento.mouse.y >= 600 && evento.mouse.y <= 655);
+                if (continuar && (telaAula != 1 || praticou) && (telaAula != 3 || resposta == 2)) {
+                    telaAula++;
+                    if (telaAula == 4) iniciar_corrida();
+                }
+                if (evento.type == ALLEGRO_EVENT_TIMER) {
+                    if (saltoTreino > 0 || velocidadeTreino > 0) {
+                        saltoTreino += velocidadeTreino / 60;
+                        velocidadeTreino -= 1600.0f / 60;
+                        if (saltoTreino < 0) { saltoTreino = 0; velocidadeTreino = 0; }
+                    }
+                }
+                if (rodando) {
+                    if (telaAula < 4)
+                        desenhar_aula(fonte, saltoTreino > 0 ? imagens[3] : imagens[1],
+                            telaAula, saltoTreino, praticou, resposta);
+                    else
+                        desenhar_corrida(fonte, grande, imagens[0], imagens[1], imagens[2],
+                            imagens[3], imagens[4], imagens[5], imagens[6], imagens[7]);
+                    desenhar_voltar(fonte);
+                    al_flip_display();
+                }
+                continue;
             }
             if (evento.type == ALLEGRO_EVENT_KEY_DOWN) {
                 int tecla = evento.keyboard.keycode;
@@ -381,7 +523,8 @@ void jogar_atletismo(void) {
             }
             if (rodando && redesenhar && al_is_event_queue_empty(fila)) {
                 desenhar_corrida(fonte, grande, imagens[0], imagens[1], imagens[2],
-                    imagens[3], imagens[4], imagens[5], imagens[6]);
+                    imagens[3], imagens[4], imagens[5], imagens[6], imagens[7]);
+                desenhar_voltar(fonte);
                 al_flip_display();
                 redesenhar = false;
             }
@@ -389,9 +532,11 @@ void jogar_atletismo(void) {
     } else {
         printf("Erro ao carregar a fase de atletismo.\n");
     }
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
         if (imagens[i]) al_destroy_bitmap(imagens[i]);
     }
+    if (atlasRico) al_destroy_bitmap(atlasRico);
+    if (atlasAna) al_destroy_bitmap(atlasAna);
     if (fonte) al_destroy_font(fonte);
     if (grande) al_destroy_font(grande);
     if (timer) al_destroy_timer(timer);

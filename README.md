@@ -12,9 +12,24 @@ Com Allegro 5, compilador C e `pkg-config` instalados, execute na pasta do proje
 ./run.sh
 ```
 
-O script compila `mainn.c`, `handebol.c` e `atletismo.c` juntos.
-`mainn.c` contém o menu; cada esporte tem sua própria função de entrada
-declarada em `fases.h`. `main.c` é o protótipo anterior.
+O script compila a aplicacao com uma unica entrada em `main.c`.
+
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `main.c` | Inicializa Allegro e chama o menu e as modalidades |
+| `menu.c` / `menu.h` | Menu principal |
+| `handebol.c` | Fase de handebol |
+| `atletismo.c` | Fase de atletismo |
+| `basquete.c` | Fase de basquete |
+| `fases.h` | Interface de entrada das modalidades |
+| `ana_sprites.c` / `rico_sprites.c` e seus `.h` | Carregamento e recortes das imagens |
+| `navegacao.c` / `navegacao.h` | Botao e teclas para voltar ao menu |
+| `assets/` | Imagens do jogo |
+| `prototipos/handebol.c` | Prototipo anterior, fora da compilacao principal |
+
+No menu, use **1**, **2** ou **3** para escolher a modalidade.
+Para abrir diretamente o basquete, execute `sh run-basquete.sh`
+ou `sh run.sh --basquete`. **Esc** retorna ao menu.
 A configuração atual de fontes usa Arial do macOS.
 
 ## Fase 2: Atletismo — Sprint 1
@@ -50,9 +65,11 @@ As constantes no início do arquivo controlam a corrida:
 | Atualização | 60 vezes por segundo |
 
 São valores de jogabilidade, para ajustar após experimentar.
-A animação alterna `assets/ana_andando1.png` e `assets/ana_correndo2.png`
-a cada 0,12 segundo enquanto Ana se move. A segunda pose tem um joelho
-levantado e a outra perna dobrada para trás; os sprites originais foram preservados.
+A animação da Ana alterna os recortes de caminhada e corrida de
+`assets/ana_sprites.png` a cada 0,12 segundo enquanto ela se move.
+O atlas contém cinco poses: parada, duas de caminhada, corrida e salto.
+`ana_sprites.h` define os recortes como sub-bitmaps da mesma textura.
+O protótipo e o handebol também usam esse atlas; o lado esquerdo usa espelhamento.
 ### Revezamento com barreiras
 
 Percurso didático que combina duas mecânicas do atletismo, com seis barreiras.
@@ -64,8 +81,12 @@ Salte antes da barreira para passar por cima. **R** restaura os dois trechos
  e todas as barreiras. O percurso é uma adaptação para o jogo, não uma
 reprodução de uma prova oficial combinando revezamento e barreiras.
 
-Rico reaproveita seus sprites atuais de movimento e salto; ainda tem uma
-única pose de corrida, enquanto Ana alterna duas poses.
+Rico usa `assets/rico_sprites.png`: parado, caminhada e salto na linha superior,
+e quatro frames de corrida na linha inferior. `rico_sprites.h` cria sub-bitmaps
+que compartilham a mesma textura. A corrida mantém recortes individuais para
+preservar os tênis e alterna os frames pelo timer. O handebol e o basquete também
+usam esse atlas; olhar para a esquerda usa `ALLEGRO_FLIP_HORIZONTAL`.
+Ana alterna duas poses de corrida.
 
 ### Conferência manual
 
@@ -75,3 +96,13 @@ Rico reaproveita seus sprites atuais de movimento e salto; ainda tem uma
 4. Segure **→** até a chegada: confira a mensagem e o tempo congelado.
 5. Pressione **R**: posição, câmera, velocidade e tempo devem voltar ao início.
 6. Volte ao menu e selecione **HANDEBOL** com W/S e **Enter**.
+
+### Memoria das imagens
+
+Os atlas foram reduzidos para a escala de exibicao: Ana 768×768,
+Rico 768×565 e bola 128×128. Em RGBA, somam aproximadamente 4,16 MB
+(antes: 71,8 MB). Os recortes compartilham a textura pai; nao sao copias.
+A RAM total inclui Allegro, fontes, janela e driver grafico.
+Em uma medicao local de 180 quadros do atletismo com Rico correndo,
+o pico RSS foi 98,57 MB. Isso nao certifica o teto de 100 MB em todas
+as fases, transicoes ou plataformas; a margem ainda e pequena.

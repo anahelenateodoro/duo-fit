@@ -12,6 +12,8 @@
 #include <allegro5/allegro_ttf.h>         // carregar fontes .ttf
 #include <stdio.h>     // printf e sprintf
 #include <stdlib.h>    // rand e srand
+#include "rico_sprites.h"
+#include "ana_sprites.h"
 #include <stdbool.h>   // tipo bool (true / false)
 #include <time.h>      // time, usado como semente do rand
 
@@ -33,6 +35,7 @@
 #define ALTURA  750
 
 #include "fases.h"
+#include "navegacao.h"
 
 // posicoes da quadra (no Allegro o eixo Y cresce para BAIXO)
 #define CHAO    630    // y onde fica o chao
@@ -108,29 +111,28 @@ void jogar_handebol(void) {
     // diz para a fila "escutar" a janela, o teclado e o timer
     al_register_event_source(fila, al_get_display_event_source(janela));
     al_register_event_source(fila, al_get_keyboard_event_source());
+    al_register_event_source(fila, al_get_mouse_event_source());
     al_register_event_source(fila, al_get_timer_event_source(timer));
 
     // ---------- carregar imagens ----------
     // al_load_bitmap devolve um PONTEIRO para a imagem na memoria
     // se nao achar o arquivo, devolve NULL
     // Rico: jogador que arremessa
-    ALLEGRO_BITMAP* ricoParado = al_load_bitmap("assets/rico_parado.png");
-    ALLEGRO_BITMAP* ricoParadoEsq = al_load_bitmap("assets/rico_parado_esquerda.png");
-    ALLEGRO_BITMAP* ricoAndando = al_load_bitmap("assets/rico_andando.png");
-    ALLEGRO_BITMAP* ricoAndandoEsq = al_load_bitmap("assets/rico_andando_esquerda.png");
-    ALLEGRO_BITMAP* ricoPulando = al_load_bitmap("assets/rico_pulando.png");
+    ALLEGRO_BITMAP* atlasRico = carregar_atlas_rico();
+    ALLEGRO_BITMAP* ricoParado = recortar_rico(atlasRico, RICO_PARADO);
+    ALLEGRO_BITMAP* ricoAndando = recortar_rico(atlasRico, RICO_ANDANDO);
+    ALLEGRO_BITMAP* ricoPulando = recortar_rico(atlasRico, RICO_PULANDO);
     // Ana: goleira
-    ALLEGRO_BITMAP* anaParadaEsq = al_load_bitmap("assets/ana_paradaesquerda.png");
-    ALLEGRO_BITMAP* anaAndando = al_load_bitmap("assets/ana_andando1.png");
+    ALLEGRO_BITMAP* atlasAna = carregar_atlas_ana();
+    ALLEGRO_BITMAP* anaAndando = recortar_ana(atlasAna, ANA_ANDANDO1);
 
-    ALLEGRO_BITMAP* anaAndandoEsq = al_load_bitmap("assets/ana_andandoesquerda1.png");
-    ALLEGRO_BITMAP* anaPulando = al_load_bitmap("assets/ana_pulando1.png");
+    ALLEGRO_BITMAP* anaPulando = recortar_ana(atlasAna, ANA_PULANDO);
     ALLEGRO_BITMAP* bola = al_load_bitmap("assets/bola.png");
     ALLEGRO_BITMAP* logo = al_load_bitmap("assets/logo.png");   // opcional
 
     // !ponteiro e verdadeiro quando o ponteiro e NULL (falhou)
-    if (!fonte || !fonteGrande || !ricoParado || !ricoParadoEsq || !ricoAndando || !ricoAndandoEsq ||
-        !ricoPulando || !anaParadaEsq || !anaAndando || !anaAndandoEsq || !anaPulando || !bola) {
+    if (!fonte || !fonteGrande || !ricoParado || !ricoAndando ||
+        !ricoPulando || !anaAndando || !anaPulando || !bola) {
         printf("Erro ao carregar fontes ou imagens.\n");
         return;
     }
@@ -194,7 +196,8 @@ void jogar_handebol(void) {
     while (rodando) {
 
         ALLEGRO_EVENT evento;
-        al_wait_for_event(fila, &evento);   // passa o endereco para a funcao preencher o evento
+        al_wait_for_event(fila, &evento);
+        if (pediu_voltar(&evento)) break;
 
         if (evento.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
             rodando = false;   // clicou no X da janela
@@ -498,7 +501,7 @@ void jogar_handebol(void) {
                 escrever(fonte, branco, 400, "5. A barra de forca define a altura do arremesso.");
                 escrever(fonte, verde, 470, "Faca 3 gols para passar de fase.");
                 desenhar(bola, LARGURA / 2 - 40, 560, 80, 80, 0);
-                escrever(fonte, branco, ALTURA - 60, "ENTER para comecar  |  VOLTAR para o menu");
+                escrever(fonte, branco, ALTURA - 60, "ENTER para comecar  |  ESC/BACKSPACE para o menu");
             }
 
             // ----- vitoria -----
@@ -539,7 +542,7 @@ void jogar_handebol(void) {
                     desenhar(anaPulando, goleiroX, goleiroY, GOLEIRO_L, GOLEIRO_A, ALLEGRO_FLIP_HORIZONTAL);
                 }
                 else if (goleiroVelX < 0) {
-                    desenhar(anaAndandoEsq, goleiroX, goleiroY, GOLEIRO_L, GOLEIRO_A, 0);
+                    desenhar(anaAndando, goleiroX, goleiroY, GOLEIRO_L, GOLEIRO_A, ALLEGRO_FLIP_HORIZONTAL);
                 }
                 else {
                     desenhar(anaAndando, goleiroX, goleiroY, GOLEIRO_L, GOLEIRO_A, 0);
@@ -561,7 +564,8 @@ void jogar_handebol(void) {
                         imagem = ricoAndando;
                     }
                     else {
-                        imagem = ricoAndandoEsq;
+                        imagem = ricoAndando;
+                        espelhar = ALLEGRO_FLIP_HORIZONTAL;
                     }
                 }
                 else {
@@ -569,7 +573,8 @@ void jogar_handebol(void) {
                         imagem = ricoParado;
                     }
                     else {
-                        imagem = ricoParadoEsq;
+                        imagem = ricoParado;
+                        espelhar = ALLEGRO_FLIP_HORIZONTAL;
                     }
                 }
                 desenhar(imagem, ricoX, ricoY, RICO_L, RICO_A, espelhar);
@@ -611,7 +616,7 @@ void jogar_handebol(void) {
                     desenhar(bola, bolaX, bolaY, BOLA_T, BOLA_T, 0);
                 }
 
-                escrever(fonte, branco, ALTURA - 45, "A/D andar | W pular | S quicar | ESPACO arremessar | VOLTAR menu");
+                escrever(fonte, branco, ALTURA - 45, "A/D andar | W pular | S quicar | ESPACO arremessar | ESC/BACKSPACE menu");
 
 
                 if (resultado != NULL) {
@@ -636,20 +641,19 @@ void jogar_handebol(void) {
                 }
             }
 
+            desenhar_voltar(fonte);
             al_flip_display();   
         }
     }
 
     al_destroy_bitmap(ricoParado);
-    al_destroy_bitmap(ricoParadoEsq);
     al_destroy_bitmap(ricoAndando);
-    al_destroy_bitmap(ricoAndandoEsq);
     al_destroy_bitmap(ricoPulando);
-    al_destroy_bitmap(anaParadaEsq);
+    al_destroy_bitmap(atlasRico);
     al_destroy_bitmap(anaAndando);
 
-    al_destroy_bitmap(anaAndandoEsq);
     al_destroy_bitmap(anaPulando);
+    al_destroy_bitmap(atlasAna);
     al_destroy_bitmap(bola);
     if (logo != NULL) {
         al_destroy_bitmap(logo);
