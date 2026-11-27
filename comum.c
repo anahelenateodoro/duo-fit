@@ -5,9 +5,9 @@
 // variaveis globais (declaradas com extern no duofit.h)
 ALLEGRO_FONT* fonte = NULL;
 ALLEGRO_FONT* fonteGrande = NULL;
-ALLEGRO_FONT* fonteMenu = NULL;
 ALLEGRO_FONT* fonteGiz = NULL;
 ALLEGRO_FONT* fonteGizTitulo = NULL;
+ALLEGRO_FONT* fonteGizPequena = NULL;
 
 ALLEGRO_BITMAP* imagemAna = NULL;    // folha com todas as poses da Ana
 ALLEGRO_BITMAP* imagemRico = NULL;   // folha com todas as poses do Rico
@@ -53,9 +53,9 @@ ALLEGRO_FONT* abrir_fonte_giz(int tamanho, bool negrito) {
 bool carregar_recursos(void) {
     fonte = abrir_fonte(24, false);
     fonteGrande = abrir_fonte(56, true);
-    fonteMenu = abrir_fonte(32, false);
     fonteGiz = abrir_fonte_giz(27, false);
     fonteGizTitulo = abrir_fonte_giz(60, true);
+    fonteGizPequena = abrir_fonte_giz(20, false);
 
     imagemAna = al_load_bitmap("assets/ana_sprites.png");
     imagemRico = al_load_bitmap("assets/rico_sprites.png");
@@ -115,9 +115,9 @@ void liberar_recursos(void) {
     }
     if (fonte != NULL) al_destroy_font(fonte);
     if (fonteGrande != NULL) al_destroy_font(fonteGrande);
-    if (fonteMenu != NULL) al_destroy_font(fonteMenu);
     if (fonteGiz != NULL) al_destroy_font(fonteGiz);
     if (fonteGizTitulo != NULL) al_destroy_font(fonteGizTitulo);
+    if (fonteGizPequena != NULL) al_destroy_font(fonteGizPequena);
 }
 
 // Escreve um texto centralizado na horizontal, na altura y.

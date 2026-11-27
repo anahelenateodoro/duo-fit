@@ -44,10 +44,10 @@
 // O "extern" quer dizer que a variavel foi criada em outro arquivo (comum.c).
 extern ALLEGRO_FONT* fonte;          // texto normal
 extern ALLEGRO_FONT* fonteGrande;    // titulos
-extern ALLEGRO_FONT* fonteMenu;      // botoes do menu
 
 extern ALLEGRO_FONT* fonteGiz;       // texto escrito na lousa
 extern ALLEGRO_FONT* fonteGizTitulo; // titulos da lousa
+extern ALLEGRO_FONT* fonteGizPequena; // textos menores do menu
 
 // cores do giz
 #define GIZ_BRANCO   al_map_rgb(238, 242, 232)
