@@ -1,77 +1,104 @@
-// DuoFit - Menu principal. Cada esporte tem seu proprio arquivo .c.
-#include <allegro5/allegro.h>
-#include <allegro5/allegro_primitives.h>
-#include <allegro5/allegro_image.h>
-#include <allegro5/allegro_font.h>
-#include <allegro5/allegro_ttf.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include "menu.h"
+// DuoFit - menu principal
+// Devolve 0 para sair ou o numero da fase (1 handebol, 2 atletismo, 3 basquete).
+// O jogo comeca pelo handebol: as outras fases ficam bloqueadas ate passar da anterior.
 
-// Retorna 0 para sair ou o numero da modalidade (1 a 3).
+#include "duofit.h"
+
 int mostrar_menu(void) {
-    ALLEGRO_DISPLAY *janela = al_create_display(1200, 750);
-    ALLEGRO_EVENT_QUEUE *fila = al_create_event_queue();
-    ALLEGRO_FONT *fonte = al_load_ttf_font("/System/Library/Fonts/Supplemental/Arial.ttf", 32, 0);
-    if (!janela || !fila || !fonte) {
-        printf("Erro ao abrir o menu.\n");
-        if (fonte) al_destroy_font(fonte);
-        if (fila) al_destroy_event_queue(fila);
-        if (janela) al_destroy_display(janela);
-        return 0;
-    }
-    al_set_window_title(janela, "DuoFit");
-    al_register_event_source(fila, al_get_display_event_source(janela));
-    al_register_event_source(fila, al_get_keyboard_event_source());
-    al_register_event_source(fila, al_get_mouse_event_source());
-    int opcao = 0;
-    int escolha = -1;
-    const char *botoes[4] = {"HANDEBOL", "ATLETISMO", "BASQUETE", "SAIR"};
+
+    ALLEGRO_EVENT_QUEUE* fila = criar_fila(NULL);   // sem timer: so espera tecla
+
+    char* botoes[4] = { "HANDEBOL", "ATLETISMO", "BASQUETE", "SAIR" };
+    int opcao = 0;      // botao marcado (0 a 3), sempre comeca no handebol
+    int escolha = -1;   // -1 = ainda nao escolheu
+
     while (escolha == -1) {
+
+        // ---------- desenhar ----------
         al_clear_to_color(al_map_rgb(20, 45, 100));
-        al_draw_text(fonte, al_map_rgb(255, 255, 255), 600, 130, ALLEGRO_ALIGN_CENTER, "DuoFit");
-        for (int i = 0; i < 4; i++) {
-            ALLEGRO_COLOR cor = al_map_rgb(40, 90, 170);
-            if (opcao == i) cor = al_map_rgb(255, 140, 0);
-            al_draw_filled_rounded_rectangle(400, 280 + i * 90, 800, 345 + i * 90, 12, 12, cor);
-            al_draw_text(fonte, al_map_rgb(255, 255, 255), 600, 290 + i * 90, ALLEGRO_ALIGN_CENTER, botoes[i]);
+        escrever(fonteMenu, al_map_rgb(255, 255, 255), 130, "DuoFit");
+
+        char textoRecorde[50];
+        sprintf(textoRecorde, "Recorde: %d pontos", recorde);
+        escrever(fonteMenu, al_map_rgb(255, 220, 0), 200, textoRecorde);
+
+        // fotos dos jogadores decorando o menu, como porta-retratos:
+        // moldura branca, a foto dentro e o nome embaixo (Ana na esquerda, Rico na direita)
+        char* nomes[2] = { "ANA", "RICO" };
+        ALLEGRO_BITMAP* fotos[2] = { fotoAna, fotoRico };
+        for (int j = 0; j < 2; j++) {
+            float x = 85 + j * 780;   // 85 = moldura da esquerda, 865 = moldura da direita
+            al_draw_filled_rounded_rectangle(x, 195, x + 250, 600, 10, 10, al_map_rgb(245, 245, 240));
+            al_draw_filled_rectangle(x + 15, 210, x + 235, 545, al_map_rgb(200, 220, 240));   // fundo da foto
+            desenhar(fotos[j], x + 15, 212, 220, 330, 0);
+            al_draw_text(fonteMenu, al_map_rgb(20, 45, 100), x + 125, 553, ALLEGRO_ALIGN_CENTER, nomes[j]);
         }
-        al_draw_text(fonte, al_map_rgb(255, 255, 255), 600, 700, ALLEGRO_ALIGN_CENTER,
-            "Clique para escolher | W/S + ENTER | 1 handebol | 2 atletismo | 3 basquete");
+
+        for (int i = 0; i < 4; i++) {
+            // a fase do botao i e i + 1 (o botao 3 e o SAIR, sempre liberado)
+            bool bloqueado = (i < 3 && i + 1 > faseLiberada);
+
+            // cada botao fica 90 pixels abaixo do outro
+            if (bloqueado) {
+                // fase bloqueada: sempre cinza, nunca fica marcada
+                al_draw_filled_rounded_rectangle(400, 280 + i * 90, 800, 345 + i * 90, 12, 12, al_map_rgb(70, 75, 90));
+                char texto[50];
+                sprintf(texto, "%s (bloqueado)", botoes[i]);
+                escrever(fonte, al_map_rgb(150, 150, 160), 298 + i * 90, texto);
+            }
+            else {
+                ALLEGRO_COLOR cor = al_map_rgb(40, 90, 170);
+                if (opcao == i) cor = al_map_rgb(255, 140, 0);   // botao marcado fica laranja
+                al_draw_filled_rounded_rectangle(400, 280 + i * 90, 800, 345 + i * 90, 12, 12, cor);
+                escrever(fonteMenu, al_map_rgb(255, 255, 255), 290 + i * 90, botoes[i]);
+            }
+        }
+
+        // dica de como liberar a proxima fase
+        if (faseLiberada == 1) escrever(fonte, al_map_rgb(255, 180, 60), 640, "Passe do handebol para liberar o atletismo.");
+        if (faseLiberada == 2) escrever(fonte, al_map_rgb(255, 180, 60), 640, "Passe do atletismo para liberar o basquete.");
+        escrever(fonteMenu, al_map_rgb(255, 255, 255), 700, "W/S ou mouse para escolher | ENTER ou clique para entrar");
         al_flip_display();
+
+        // ---------- esperar o jogador ----------
         ALLEGRO_EVENT evento;
-        al_wait_for_event(fila, &evento);
+        esperar_evento(fila, &evento);
+
         if (evento.type == ALLEGRO_EVENT_DISPLAY_CLOSE) escolha = 0;
-        if (evento.type == ALLEGRO_EVENT_MOUSE_AXES ||
-            (evento.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN && evento.mouse.button == 1)) {
+
+        // mouse em cima de um botao liberado marca ele; clique entra
+        if (evento.type == ALLEGRO_EVENT_MOUSE_AXES || clicou(evento)) {
             for (int i = 0; i < 4; i++) {
-                if (evento.mouse.x >= 400 && evento.mouse.x <= 800 &&
+                bool liberado = (i == 3 || i + 1 <= faseLiberada);
+                if (liberado && evento.mouse.x >= 400 && evento.mouse.x <= 800 &&
                     evento.mouse.y >= 280 + i * 90 && evento.mouse.y <= 345 + i * 90) {
                     opcao = i;
-                    if (evento.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN)
-                        escolha = (i == 3) ? 0 : i + 1;
-                    break;
+                    if (clicou(evento)) escolha = (i == 3) ? 0 : i + 1;
                 }
             }
         }
+
         if (evento.type == ALLEGRO_EVENT_KEY_DOWN) {
             int tecla = evento.keyboard.keycode;
             if (tecla == ALLEGRO_KEY_ESCAPE) escolha = 0;
-            else if (tecla == ALLEGRO_KEY_1) escolha = 1;
-            else if (tecla == ALLEGRO_KEY_2) escolha = 2;
-            else if (tecla == ALLEGRO_KEY_3) escolha = 3;
-            else if (tecla == ALLEGRO_KEY_W || tecla == ALLEGRO_KEY_UP) {
-                if (opcao > 0) opcao--;
-            } else if (tecla == ALLEGRO_KEY_S || tecla == ALLEGRO_KEY_DOWN) {
-                if (opcao < 3) opcao++;
-            } else if (tecla == ALLEGRO_KEY_ENTER) {
+
+            // W/S so andam pelos botoes liberados: 0 ate faseLiberada - 1, e o SAIR (3)
+            if (tecla == ALLEGRO_KEY_W || tecla == ALLEGRO_KEY_UP) {
+                if (opcao == 3) opcao = faseLiberada - 1;   // do SAIR pula para a ultima fase liberada
+                else if (opcao > 0) opcao--;
+            }
+            if (tecla == ALLEGRO_KEY_S || tecla == ALLEGRO_KEY_DOWN) {
+                if (opcao < faseLiberada - 1) opcao++;
+                else opcao = 3;                             // pula as bloqueadas e vai para o SAIR
+            }
+
+            if (tecla == ALLEGRO_KEY_ENTER) {
                 if (opcao == 3) escolha = 0;
                 else escolha = opcao + 1;
             }
         }
     }
-    al_destroy_font(fonte);
+
     al_destroy_event_queue(fila);
-    al_destroy_display(janela);
     return escolha;
 }
