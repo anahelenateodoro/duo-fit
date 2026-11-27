@@ -1,108 +1,110 @@
 # DuoFit
 
 Jogo educativo 2D em C com Allegro 5, para Educação Física no ensino médio.
-Projeto Integrador II · Senac. Equipe: Nathali, Ana Helena e Gabriel.
+Projeto Integrador II - Senac. Equipe: Nathali, Ana Helena e Gabriel.
 Entrega final: 30/11/2026.
 
-## Executar
+## Arquivos
 
-Com Allegro 5, compilador C e `pkg-config` instalados, execute na pasta do projeto:
+| Arquivo | O que faz |
+| --- | --- |
+| `main.c` | Liga o Allegro, abre a janela e troca entre o menu e as fases |
+| `duofit.h` | Constantes, variáveis globais e funções que todos os arquivos usam |
+| `comum.c` | Carrega fontes, imagens e som uma vez só; funções `escrever` e `desenhar` |
+| `menu.c` | Menu principal |
+| `handebol.c` | Fase 1 |
+| `atletismo.c` | Fase 2 |
+| `basquete.c` | Fase 3 |
+| `pergunta.c` | Pergunta do final de cada fase e tela de pontos |
+| `assets/` | Imagens (`ana_sprites.png`, `rico_sprites.png`, `bola.png`), som (`gol.wav`) |
 
-```sh
-./run.sh
+## Como o jogo funciona
+
+```
+MENU -> Handebol -> Atletismo -> Basquete -> MENU
 ```
 
-O script compila a aplicacao com uma unica entrada em `main.c`.
+Cada fase tem as mesmas telas:
 
-| Arquivo | Responsabilidade |
-| --- | --- |
-| `main.c` | Inicializa Allegro e chama o menu e as modalidades |
-| `menu.c` / `menu.h` | Menu principal |
-| `handebol.c` | Fase de handebol |
-| `atletismo.c` | Fase de atletismo |
-| `basquete.c` | Fase de basquete |
-| `fases.h` | Interface de entrada das modalidades |
-| `ana_sprites.c` / `rico_sprites.c` e seus `.h` | Carregamento e recortes das imagens |
-| `navegacao.c` / `navegacao.h` | Botao e teclas para voltar ao menu |
-| `assets/` | Imagens do jogo |
-| `prototipos/handebol.c` | Prototipo anterior, fora da compilacao principal |
+1. **Regras** (na lousa). ENTER começa.
+2. **Jogo**.
+3. **Vitória** (na lousa). ENTER abre a pergunta.
+4. **Pergunta** com 3 alternativas (A, B ou C). Acertar vale +10 pontos.
+5. **Pontos finais**: pontos da fase, da pergunta e o total do DuoFit.
 
-No menu, use **1**, **2** ou **3** para escolher a modalidade.
-Para abrir diretamente o basquete, execute `sh run-basquete.sh`
-ou `sh run.sh --basquete`. **Esc** retorna ao menu.
-A configuração atual de fontes usa Arial do macOS.
+O jogo usa teclado e mouse. No menu, W/S ou o mouse escolhem, e ENTER ou o
+clique entram. Na pergunta dá para clicar na alternativa. Nas telas de aviso,
+regras e resultado, o clique vale como ENTER.
 
-## Fase 2: Atletismo — Sprint 1
+O recorde (maior total do DuoFit) fica salvo no arquivo `recorde.txt`, na pasta
+do jogo, e aparece no menu e na tela de pontos. Para zerar, apague o arquivo.
 
-Responsável: Ana Helena Faustino Teodoro. Entrega prevista: 09/10/2026.
-No menu, pressione **2** para entrar diretamente no atletismo.
+O jogo sempre começa pelo handebol. As outras fases aparecem em cinza
+(bloqueadas), não podem ser selecionadas e são liberadas em ordem: passar do handebol libera o atletismo,
+e passar do atletismo libera o basquete. O menu mostra fotos da Ana e do Rico em porta-retratos. Para usar fotos próprias,
+coloque `foto_ana.png` e `foto_rico.png` na pasta `assets/` (de preferência em pé, proporção 2:3).
 
-- **Segure D ou →:** acelera para a frente até a velocidade máxima.
-- **Solte:** desacelera até parar.
-- **Espaço:** salta as barreiras (apenas quando está no chão).
-- **E:** passa o bastão para Rico dentro da zona amarela, no chão.
-- **R:** reinicia o percurso e o cronômetro.
-- **Esc ou Backspace:** volta ao menu.
+Cada fase é uma função com um loop que espera um evento (tecla ou timer),
+atualiza o jogo 60 vezes por segundo e desenha a tela. A variável `estado`
+diz qual tela está aparecendo. Quando a fase termina, a função devolve para o
+`main` se é para ir para a próxima fase (`PROXIMA_FASE`), voltar ao menu
+(`VOLTAR_MENU`) ou fechar o jogo (`FECHAR_JOGO`).
 
-A Ana percorre uma pista de 100 metros com raias, marcações e linha de chegada.
-A câmera acompanha a personagem e para perto do fim da pista.
-O painel mostra distância, velocidade, tempo e progresso.
-O cronômetro começa no primeiro movimento e para na chegada.
+| Tecla | Handebol | Atletismo | Basquete |
+| --- | --- | --- | --- |
+| A / D | andar | D (segurar): correr | andar |
+| W | pular | pular a barreira | pular |
+| S | quicar | - | quicar |
+| ESPAÇO | arremessar | passar o bastão | arremessar |
+| ENTER | continuar | continuar | continuar |
+| ESC / BACKSPACE | menu | menu | menu |
 
-### Valores iniciais para ajustar no planejamento
+### Pontos (mínimo 10 por fase)
 
-A mecânica, o cenário e o loop da fase ficam em `atletismo.c`.
-`atletismo.h` mantém apenas a declaração da função de entrada.
-As constantes no início do arquivo controlam a corrida:
+- **Handebol:** 30 menos 2 por arremesso que não foi gol. Meta: 3 gols em até
+  7 tentativas. Se as tentativas acabarem, a fase recomeça.
+- **Atletismo:** 30 pontos. Meta: chegar aos 100 m sem derrubar nenhuma barreira.
+  Se derrubar uma, a fase recomeça.
+- **Basquete:** 30 menos 2 por arremesso errado. Meta: 10 pontos de cesta
+  (3 de trás da linha branca, 2 dentro) em até 7 tentativas. Se as tentativas
+  acabarem, a fase recomeça. Mais de 2 passos sem quicar é andada.
 
-| Parâmetro | Valor |
-| --- | --- |
-| Escala | 40 pixels = 1 metro |
-| Percurso | 4.000 pixels = 100 metros |
-| Velocidade máxima | 520 pixels/s = 13 m/s |
-| Aceleração | 260 pixels/s² = 6,5 m/s² |
-| Desaceleração | 340 pixels/s² = 8,5 m/s² |
-| Atualização | 60 vezes por segundo |
+Cada fase vale no máximo 40 (30 + 10 da pergunta), então o DuoFit vale 120.
+Para **ganhar o jogo** é preciso terminar com pelo menos 80% (96 pontos).
+Abaixo disso aparece a mensagem de que o jogador perdeu.
 
-São valores de jogabilidade, para ajustar após experimentar.
-A animação da Ana alterna os recortes de caminhada e corrida de
-`assets/ana_sprites.png` a cada 0,12 segundo enquanto ela se move.
-O atlas contém cinco poses: parada, duas de caminhada, corrida e salto.
-`ana_sprites.h` define os recortes como sub-bitmaps da mesma textura.
-O protótipo e o handebol também usam esse atlas; o lado esquerdo usa espelhamento.
-### Revezamento com barreiras
+### Física
 
-Percurso didático que combina duas mecânicas do atletismo, com seis barreiras.
-Ana corre o primeiro trecho; Rico espera na zona amarela entre 45 e 55 metros.
-Pressione **E** dentro da zona para assumir o Rico. Se não passar o bastão,
-Ana espera no fim da zona. O segundo trecho termina na linha de chegada.
-Bater em uma barreira a derruba, reduz a velocidade e conta uma batida.
-Salte antes da barreira para passar por cima. **R** restaura os dois trechos
- e todas as barreiras. O percurso é uma adaptação para o jogo, não uma
-reprodução de uma prova oficial combinando revezamento e barreiras.
+Tudo é contado por frame (60 por segundo):
 
-Rico usa `assets/rico_sprites.png`: parado, caminhada e salto na linha superior,
-e quatro frames de corrida na linha inferior. `rico_sprites.h` cria sub-bitmaps
-que compartilham a mesma textura. A corrida mantém recortes individuais para
-preservar os tênis e alterna os frames pelo timer. O handebol e o basquete também
-usam esse atlas; olhar para a esquerda usa `ALLEGRO_FLIP_HORIZONTAL`.
-Ana alterna duas poses de corrida.
+- `posicao = posicao + velocidade` e `velocidade = velocidade + gravidade`,
+  o que faz o pulo e a bola andarem em parábola.
+- No atletismo, segurar D soma 0,07 na velocidade a cada frame (máximo 8,5 pixels
+  por frame) e soltar tira 0,1. A pista tem 40 pixels por metro.
+- No basquete, a bola sai inclinada uns 67 graus. A barra de força muda a velocidade
+  de saída, por isso cada distância precisa de uma força diferente para acertar.
 
-### Conferência manual
+### Som
 
-1. Entre com **2** e confirme que Ana começa parada.
-2. Segure **D**: confira o aumento da velocidade e a rolagem da pista.
-3. Solte: confira que Ana desacelera e para.
-4. Segure **→** até a chegada: confira a mensagem e o tempo congelado.
-5. Pressione **R**: posição, câmera, velocidade e tempo devem voltar ao início.
-6. Volte ao menu e selecione **HANDEBOL** com W/S e **Enter**.
+`assets/gol.wav` toca no gol, na cesta e na chegada do atletismo.
+Sem o arquivo ou sem placa de som, o jogo roda normalmente, só sem som.
 
-### Memoria das imagens
+### Memória
 
-Os atlas foram reduzidos para a escala de exibicao: Ana 768×768,
-Rico 768×565 e bola 128×128. Em RGBA, somam aproximadamente 4,16 MB
-(antes: 71,8 MB). Os recortes compartilham a textura pai; nao sao copias.
-A RAM total inclui Allegro, fontes, janela e driver grafico.
-Em uma medicao local de 180 quadros do atletismo com Rico correndo,
-o pico RSS foi 98,57 MB. Isso nao certifica o teto de 100 MB em todas
-as fases, transicoes ou plataformas; a margem ainda e pequena.
+Fontes, imagens e som são carregados uma vez só no começo (`carregar_recursos`)
+e todas as fases usam os mesmos. As poses dos personagens são recortes
+(`al_create_sub_bitmap`) da mesma imagem, então não ocupam memória a mais.
+
+## Visual Studio (Windows)
+
+1. Crie um projeto **C++ vazio** e adicione os 7 arquivos `.c` e o `duofit.h`
+   (Adicionar > Item Existente).
+2. Botão direito no projeto > **Gerenciar Pacotes NuGet** > instale **Allegro**.
+3. Propriedades do projeto > **Allegro 5** > Add-ons: marque **Image, TTF, Font,
+   Primitives, Audio e Audio Codec**.
+4. Coloque a pasta `assets/` ao lado do arquivo `.vcxproj`.
+5. **Compilação > Recompilar Solução** e **F5**.
+
+## Linux ou macOS
+
+Com Allegro 5 e `pkg-config` instalados, rode `./run.sh` na pasta do projeto.

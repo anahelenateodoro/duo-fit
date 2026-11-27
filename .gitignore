@@ -1,5 +1,7 @@
-/programa
+programa
 *.o
 .DS_Store
 
 /basquete
+
+recorde.txt
